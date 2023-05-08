@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice-Enabled ChatGPT4</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="css/custom.css"/>
+</head>
+<body>
+    <div class="container text-center">
+        <h1 class="text-center">Voice-Enabled ChatGPT4</h1>
+        <div class="row">
+            <div class="col-sm-3"></div>
+            <div class="col-sm-6 w-10">
+                <img src="./images/phone.png" class="text-align:center">
+                <button class="btn btn-primary mb-4 mt-5 pd-0 float-left" id="startButton" onclick="startRecording()"><i class="fa fa-microphone"></i> Start Recording</button>
+                <button class="btn btn-primary mb-4 mt-5 float-right" id="stopButton" onclick="stopRecording()" disabled><i class="fa fa-stop"></i> Stop Recording</button>
+                <audio id="userAudio" class="w-100 mb-3" controls></audio>
+                <audio id="responseAudio" class="w-100" controls></audio>
+            </div>
+            <div class="col-sm-3"></div>
+        </div>
+    </div>
+    
+    <script>
+        let mediaRecorder;
+        let recordedChunks = [];
+        
+        async function startRecording() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.addEventListener('dataavailable', (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                    console.log(event.data)
+                }
+            });
+            mediaRecorder.addEventListener('stop', sendAudioToServer);
+            mediaRecorder.start();
+            document.getElementById('startButton').disabled = true;
+            document.getElementById('stopButton').disabled = false;
+        }
+        
+        function stopRecording() {
+            mediaRecorder.stop();
+            console.log(recordedChunks)
+            document.getElementById('startButton').disabled = false;
+            document.getElementById('stopButton').disabled = true;
+        }
+        
+        async function sendAudioToServer() {
+            const audioBlob = new Blob(recordedChunks, { type: 'audio/wav' });
+            recordedChunks = [];
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = async () => {
+                const base64data = reader.result.split(',')[1];
+                const response = await fetch('http://localhost:5000/process_voice_input', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ audio_data: base64data })
+                });
+                const responseData = await response.json();
+                const responseAudioData = responseData.audio_data;
+
+                document.getElementById('userAudio').src = URL.createObjectURL(audioBlob);
+                document.getElementById('responseAudio').src = 'data:audio/mp3;base64,' + responseAudioData;
+            };
+        }
+    </script>
+</body>
+</html>
