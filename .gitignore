@@ -1,4 +1,4 @@
 config.py
 image.json
 quickstart.json
-credentials.json
+credentials.json__pycache__/
